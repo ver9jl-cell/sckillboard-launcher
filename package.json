@@ -4,7 +4,7 @@
   "description": "scKillboard - Star Citizen Kill Tracker",
   "main": "src/main.js",
   "scripts": {
-    "start": "node -e \"require('fs').writeFileSync('node_modules/electron/path.txt', 'electron.exe')\" && electron .",
+    "start": "electron .",
     "build": "electron-builder build --win --x64",
     "dev": "electron . --dev"
   },
