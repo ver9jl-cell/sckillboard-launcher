@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node -e \"require('fs').writeFileSync('node_modules/electron/path.txt', 'electron.exe')\" && electron .",
     "build": "electron-builder build --win --x64",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "test": "node test/security.test.js"
   },
   "build": {
     "appId": "com.sckillboard.app",
