@@ -613,11 +613,13 @@ body {
 
   /* ── Feed ── */
   const feedEl = document.getElementById('feed')
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+
   function addLog(type, msg) {
     const ts   = new Date().toLocaleTimeString('en-AU', { hour12: false })
     const line = document.createElement('div')
     line.className = 'log-line'
-    line.innerHTML = `<span class="log-ts">[${ts}]</span><span class="c-${type}">${msg}</span>`
+    line.innerHTML = `<span class="log-ts">[${ts}]</span><span class="c-${type}">${esc(msg)}</span>`
     feedEl.appendChild(line)
     feedEl.scrollTop = feedEl.scrollHeight
   }
@@ -843,25 +845,25 @@ body {
         <div class="wx-section">
           <div class="wx-sec-title">Sector Overview</div>
           <div class="wx-stats-2">
-            <div class="wx-stat2"><div class="wx-stat2-val">${data.homicides}</div><div class="wx-stat2-lbl">Homicides</div></div>
-            <div class="wx-stat2"><div class="wx-stat2-val">${data.bounties}</div><div class="wx-stat2-lbl">Bounties Collected</div></div>
+            <div class="wx-stat2"><div class="wx-stat2-val">${esc(data.homicides)}</div><div class="wx-stat2-lbl">Homicides</div></div>
+            <div class="wx-stat2"><div class="wx-stat2-val">${esc(data.bounties)}</div><div class="wx-stat2-lbl">Bounties Collected</div></div>
           </div>
         </div>
         <div class="wx-section">
           <div class="wx-sec-title">Bounties vs Murders</div>
           <div class="wx-split-bar">
-            <div class="wx-split-a" style="width:${data.bounty_pct}%"></div>
-            <div class="wx-split-b" style="width:${data.murder_pct}%"></div>
+            <div class="wx-split-a" style="width:${esc(data.bounty_pct)}%"></div>
+            <div class="wx-split-b" style="width:${esc(data.murder_pct)}%"></div>
           </div>
           <div class="wx-split-labels">
-            <span>Bounties &nbsp;${data.bounty_pct}%</span>
-            <span>${data.murder_pct}% &nbsp;Murders</span>
+            <span>Bounties &nbsp;${esc(data.bounty_pct)}%</span>
+            <span>${esc(data.murder_pct)}% &nbsp;Murders</span>
           </div>
         </div>
         <div class="wx-section">
           <div class="wx-sec-title">Organisation Activity</div>
           ${data.orgs.length
-            ? data.orgs.map(org=>`<div class="wx-org-row">${org}</div>`).join('')
+            ? data.orgs.map(org=>`<div class="wx-org-row">${esc(org)}</div>`).join('')
             : '<div class="wx-loading" style="font-size:11px">No org activity in last 24h</div>'}
         </div>
         <div class="wx-section">
@@ -869,12 +871,12 @@ body {
           ${data.pilots.map((p,i)=>`
             <div class="wx-killer-row">
               <div class="wx-killer-rank">${i+1}</div>
-              ${p.avatar?`<img class="wx-killer-av" src="${p.avatar}" onerror="this.style.display='none'">`:
+              ${p.avatar?`<img class="wx-killer-av" src="${esc(p.avatar)}" onerror="this.style.display='none'">`:
                           '<div class="wx-killer-av"></div>'}
               <div class="wx-killer-info">
-                <div class="wx-killer-name">${p.handle}</div>
+                <div class="wx-killer-name">${esc(p.handle)}</div>
               </div>
-              <div class="wx-killer-val">${p.kills}</div>
+              <div class="wx-killer-val">${esc(p.kills)}</div>
             </div>`).join('')}
         </div>
         ${beaconSection}
@@ -895,7 +897,7 @@ body {
       ? active.map(b => `
           <div class="wx-beacon-active">
             <span class="wx-beacon-pulse"></span>
-            <span class="wx-beacon-name">${b.handle}</span>
+            <span class="wx-beacon-name">${esc(b.handle)}</span>
             <span class="wx-beacon-exp">expires ${new Date(b.expires_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
           </div>`).join('')
       : '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px">No active beacons</div>'
@@ -1008,33 +1010,33 @@ body {
     const minsLeft = Math.max(0, Math.round((exp - Date.now()) / 60000))
 
     const roster = accepted.map(m =>
-      `<span style="font-size:10px;background:var(--bg3);border-radius:3px;padding:2px 6px;color:var(--tx2)">${m.handle === g.leader ? '👑' : ''}${m.handle}</span>`
+      `<span style="font-size:10px;background:var(--bg3);border-radius:3px;padding:2px 6px;color:var(--tx2)">${m.handle === g.leader ? '👑' : ''}${esc(m.handle)}</span>`
     ).join(' ')
 
     const pendingSection = isLeader && pending.length ? pending.map(m => `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-top:1px solid var(--bg3);margin-top:6px">
-        <span style="font-size:11px;color:var(--tx2)">${m.handle}</span>
+        <span style="font-size:11px;color:var(--tx2)">${esc(m.handle)}</span>
         <div style="display:flex;gap:4px">
-          <button onclick="clientRespondLFG(${g.id},'${m.handle}','accept')" style="font-size:10px;padding:2px 8px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.4);color:#2ecc71;border-radius:3px;cursor:pointer">✓</button>
-          <button onclick="clientRespondLFG(${g.id},'${m.handle}','decline')" style="font-size:10px;padding:2px 8px;background:rgba(192,80,64,0.12);border:1px solid rgba(192,80,64,0.3);color:#c05040;border-radius:3px;cursor:pointer">✗</button>
+          <button data-act="respond" data-g="${g.id}" data-h="${esc(m.handle)}" data-v="accept" style="font-size:10px;padding:2px 8px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.4);color:#2ecc71;border-radius:3px;cursor:pointer">✓</button>
+          <button data-act="respond" data-g="${g.id}" data-h="${esc(m.handle)}" data-v="decline" style="font-size:10px;padding:2px 8px;background:rgba(192,80,64,0.12);border:1px solid rgba(192,80,64,0.3);color:#c05040;border-radius:3px;cursor:pointer">✗</button>
         </div>
       </div>`).join('') : ''
 
     const actions = isLeader
       ? `<div style="display:flex;gap:6px;margin-top:8px">
-           <button onclick="clientRenewLFG(${g.id})" style="flex:1;font-size:10px;padding:4px 0;background:var(--bg3);border:1px solid var(--bg4);color:var(--tx2);border-radius:3px;cursor:pointer">Renew</button>
-           <button onclick="clientDisbandLFG(${g.id})" style="flex:1;font-size:10px;padding:4px 0;background:rgba(192,80,64,0.1);border:1px solid rgba(192,80,64,0.3);color:#c05040;border-radius:3px;cursor:pointer">Disband</button>
+           <button data-act="renew" data-g="${g.id}" style="flex:1;font-size:10px;padding:4px 0;background:var(--bg3);border:1px solid var(--bg4);color:var(--tx2);border-radius:3px;cursor:pointer">Renew</button>
+           <button data-act="disband" data-g="${g.id}" style="flex:1;font-size:10px;padding:4px 0;background:rgba(192,80,64,0.1);border:1px solid rgba(192,80,64,0.3);color:#c05040;border-radius:3px;cursor:pointer">Disband</button>
          </div>`
       : (!isMember && !full)
-        ? `<button onclick="clientJoinLFG(${g.id})" style="width:100%;margin-top:8px;padding:5px 0;font-size:10px;background:rgba(74,143,192,0.12);border:1px solid rgba(74,143,192,0.35);color:#4a8fc0;border-radius:3px;cursor:pointer">Request to Join</button>`
+        ? `<button data-act="join" data-g="${g.id}" style="width:100%;margin-top:8px;padding:5px 0;font-size:10px;background:rgba(74,143,192,0.12);border:1px solid rgba(74,143,192,0.35);color:#4a8fc0;border-radius:3px;cursor:pointer">Request to Join</button>`
         : myStatus === 'pending'
           ? `<div style="font-size:10px;color:#f39c12;margin-top:6px;text-align:center">⏳ Pending leader approval</div>`
           : ''
 
     return `<div style="background:var(--bg2);border:1px solid var(--bg3);border-left:3px solid ${color};border-radius:5px;padding:10px 12px">
-      <div style="font-size:12px;font-weight:700;color:var(--tx1)">${g.name}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--tx1)">${esc(g.name)}</div>
       <div style="font-size:10px;color:var(--tx3);margin:2px 0 6px">
-        <span style="color:${color}">${g.system}</span> · ${g.leader} · ${accepted.length}/${g.max_size} · ${minsLeft}m left
+        <span style="color:${color}">${esc(g.system)}</span> · ${esc(g.leader)} · ${accepted.length}/${g.max_size} · ${minsLeft}m left
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">${roster}</div>
       ${pendingSection}
@@ -1050,7 +1052,7 @@ body {
       wrap.style.display = 'block'
       form.style.display = 'none'
       wrap.innerHTML = `<div style="font-size:10px;color:var(--tx3);margin-bottom:4px">YOUR GROUP IS LIVE</div>
-        <div style="font-size:12px;font-weight:700;color:var(--tx1)">${myGroup.name} · ${myGroup.system}</div>`
+        <div style="font-size:12px;font-weight:700;color:var(--tx1)">${esc(myGroup.name)} · ${esc(myGroup.system)}</div>`
     } else {
       wrap.style.display = 'none'
       form.style.display = 'block'
@@ -1079,10 +1081,21 @@ body {
 
   document.getElementById('lfg-client-refresh').addEventListener('click', loadClientLFG)
 
+  document.getElementById('lfg-client-board').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-act]')
+    if (!btn) return
+    const act = btn.dataset.act
+    const g = btn.dataset.g
+    if (act === 'join') clientJoinLFG(g)
+    else if (act === 'respond') clientRespondLFG(g, btn.dataset.h, btn.dataset.v)
+    else if (act === 'renew') clientRenewLFG(g)
+    else if (act === 'disband') clientDisbandLFG(g)
+  })
+
   async function clientJoinLFG(groupId) {
     const handle = window.__lastKillHandle || ''
     if (!handle) { alert('No kill history — submit a kill first'); return }
-    await fetch(BASE_LFG + `/api/lfg/${groupId}/join`, {
+    await fetch(BASE_LFG + `/api/lfg/${encodeURIComponent(groupId)}/join`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ handle })
     })
@@ -1091,7 +1104,7 @@ body {
 
   async function clientRespondLFG(groupId, handle, action) {
     const leader = window.__lastKillHandle || ''
-    await fetch(BASE_LFG + `/api/lfg/${groupId}/respond`, {
+    await fetch(BASE_LFG + `/api/lfg/${encodeURIComponent(groupId)}/respond`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ leader, handle, action })
     })
@@ -1100,7 +1113,7 @@ body {
 
   async function clientRenewLFG(groupId) {
     const leader = window.__lastKillHandle || ''
-    await fetch(BASE_LFG + `/api/lfg/${groupId}/renew`, {
+    await fetch(BASE_LFG + `/api/lfg/${encodeURIComponent(groupId)}/renew`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ leader })
     })
@@ -1110,7 +1123,7 @@ body {
   async function clientDisbandLFG(groupId) {
     if (!confirm('Disband this group?')) return
     const leader = window.__lastKillHandle || ''
-    await fetch(BASE_LFG + `/api/lfg/${groupId}`, {
+    await fetch(BASE_LFG + `/api/lfg/${encodeURIComponent(groupId)}`, {
       method:'DELETE', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ leader })
     })

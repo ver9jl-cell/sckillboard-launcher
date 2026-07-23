@@ -3,7 +3,7 @@
  * Handles window creation, IPC, Game.log watching, API calls + RSI profile sync.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require('electron')
 const path   = require('path')
 const fs     = require('fs')
 const https  = require('https')
@@ -60,10 +60,33 @@ const QUOTES = [
 ]
 
 // ── Config helpers ──────────────────────────────────────────────────────────────
+const SECRET_FIELDS = ['session_token', 'personal_webhook'];
+
+function _protectSecrets(cfg) {
+  for (const k of SECRET_FIELDS) {
+    if (cfg[k] != null && !String(cfg[k]).startsWith('enc:')) {
+      cfg[k] = 'enc:' + safeStorage.encryptString(String(cfg[k])).toString('base64');
+    }
+  }
+  return cfg;
+}
+
+function _unprotectSecrets(cfg) {
+  for (const k of SECRET_FIELDS) {
+    if (cfg[k] != null && String(cfg[k]).startsWith('enc:')) {
+      try { cfg[k] = safeStorage.decryptString(Buffer.from(String(cfg[k]).slice(4), 'base64')); } catch (e) {}
+    }
+  }
+  return cfg;
+}
+
 function loadConfig() {
   try {
-    if (fs.existsSync(CONFIG_FILE))
-      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+    if (fs.existsSync(CONFIG_FILE)) {
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      if (safeStorage.isEncryptionAvailable()) _unprotectSecrets(cfg);
+      return cfg;
+    }
   } catch(e) {}
   return { log_path: DEFAULT_LOG, attacker_handle: '', personal_webhook: '', personal_enabled: false, api_secret: '', volume: 0.067, muted: false }
 }
@@ -71,7 +94,8 @@ function loadConfig() {
 function saveConfig(cfg) {
   try {
     fs.mkdirSync(CONFIG_DIR, { recursive: true })
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2))
+    const out = safeStorage.isEncryptionAvailable() ? _protectSecrets(JSON.parse(JSON.stringify(cfg))) : cfg;
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(out, null, 2))
   } catch(e) {}
 }
 
@@ -139,7 +163,11 @@ function httpGet(urlStr) {
     const req = mod.get(opts, res => {
       // Follow redirects
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return httpGet(res.headers.location).then(resolve).catch(reject)
+        const loc = new URL(res.headers.location, urlStr).href
+        if (/^https?:\/\/(www\.)?robertsspaceindustries\.com\//i.test(loc)) {
+          return httpGet(loc).then(resolve).catch(reject)
+        }
+        return resolve({ status: res.statusCode, body: '' })
       }
       let data = ''
       res.on('data', c => data += c)
@@ -156,11 +184,11 @@ async function fetchRsiProfile(handle) {
     handle, display: handle,
     avatar_url: '', org_logo: '', org_name: '', org_sid: '', org_rank: '',
     enlisted: '', location: '',
-    profile_url: `https://robertsspaceindustries.com/en/citizens/${handle}`
+    profile_url: `https://robertsspaceindustries.com/en/citizens/${encodeURIComponent(handle)}`
   }
   for (const url of [
-    `https://robertsspaceindustries.com/en/citizens/${handle}`,
-    `https://robertsspaceindustries.com/citizens/${handle}`,
+    `https://robertsspaceindustries.com/en/citizens/${encodeURIComponent(handle)}`,
+    `https://robertsspaceindustries.com/citizens/${encodeURIComponent(handle)}`,
   ]) {
     try {
       const res = await httpGet(url)
@@ -216,7 +244,7 @@ const EXCLUDED_ORG_SIDS = new Set(['AVOCADO', 'TEST', 'COALPVP'])
 async function fetchRsiAffiliations(handle) {
   const affiliations = []
   try {
-    const res = await httpGet(`https://robertsspaceindustries.com/en/citizens/${handle}/organizations`)
+    const res = await httpGet(`https://robertsspaceindustries.com/en/citizens/${encodeURIComponent(handle)}/organizations`)
     if (res.status !== 200 || res.body.length < 500) return affiliations
     const html = res.body
 
@@ -799,7 +827,7 @@ function createAudio() {
   audioWin = new BrowserWindow({
     show: false, width: 1, height: 1,
     skipTaskbar: true,
-    webPreferences: { nodeIntegration: true, contextIsolation: false }
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
   })
   audioWin.loadFile(path.join(__dirname, 'audio.html'))
   audioWin.webContents.once('did-finish-load', () => {
@@ -1078,7 +1106,7 @@ async function forceUpdate(win, info) {
       cancelId: 1,
     })
     if (choice.response === 0) {
-      shell.openExternal(info.download_url || DEFAULT_RELEASES_URL)
+      shell.openExternal(/^https:\/\//i.test(info.download_url || '') ? info.download_url : DEFAULT_RELEASES_URL)
     }
   } catch (e) {
     // If the dialog itself fails, still quit — we must not let an outdated client run.
@@ -1108,7 +1136,7 @@ async function checkForUpdates(win) {
         defaultId: 0,
         cancelId: 1,
       })
-      if (choice.response === 0 && res.download_url) {
+      if (choice.response === 0 && res.download_url && /^https:\/\//i.test(res.download_url)) {
         shell.openExternal(res.download_url)
       }
     }
@@ -1116,6 +1144,16 @@ async function checkForUpdates(win) {
     // Update server unreachable — fail silently, never block app startup
   }
 }
+
+app.on('web-contents-created', (e, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//i.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('file://')) event.preventDefault()
+  })
+})
 
 app.whenReady().then(() => {
   createSplash()
