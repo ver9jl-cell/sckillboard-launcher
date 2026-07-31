@@ -7,7 +7,10 @@
     "start": "node -e \"require('fs').writeFileSync('node_modules/electron/path.txt', 'electron.exe')\" && electron .",
     "build": "electron-builder build --win --x64",
     "dev": "electron . --dev",
-    "test": "node test/security.test.js"
+    "test": "node test/security.test.js",
+    "build-linux": "electron-builder build --linux --x64",
+    "start-linux": "electron .",
+    "dev-linux": "electron . --dev"
   },
   "build": {
     "appId": "com.sckillboard.app",
@@ -27,6 +30,12 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
     },
     "files": [
       "src/**/*",

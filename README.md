@@ -39,6 +39,33 @@ The installers on the [Releases](https://github.com/ver9jl-cell/sckillboard-laun
 
 > **Note:** the installer is not code-signed, so Windows SmartScreen may warn on first run — choose *More info → Run anyway*. Signing is a paid certificate we don't currently use.
 
+### Linux
+
+Assumes the following path to the `Game.log` file
+
+```
+ ~/Games/star-citizen/drive_c/Program Files/Roberts Space Industries/StarCitizen/LIVE/Game.log
+```
+
+if you have it installed elsewhere, you can change it in the settings of the launcher or under
+
+```
+~/.config/sckillboard/
+```
+
+the `build-linux` script runs `electron-builder build --linux --x64` and produces an appimage at 
+
+```
+dist/scKillboard-Setup-<version>.AppImage
+```
+
+to run it:
+
+```bash
+chmod +x dist/scKillboard-Setup-<version>.AppImage
+dist/scKillboard-Setup-<version>.AppImage
+```
+
 ## Security
 
 By design, this client is open source. Security lives on the server, not in the client — nothing secret ships in this repo. See the public site for how identity verification and anti-fraud work.

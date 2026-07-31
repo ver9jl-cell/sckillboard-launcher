@@ -11,13 +11,25 @@ const http   = require('http')
 const os     = require('os')
 const crypto = require('crypto')
 const { exec } = require('child_process')
+const IS_LINUX = process.platform === 'linux'
+const USERAGENT = IS_LINUX ?
+  'Mozilla/5.0 (X11; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0' :
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36'
+
 
 // ── Star Citizen process check ────────────────────────────────────────────────
 function isScRunning() {
   return new Promise(resolve => {
-    exec('tasklist /FI "IMAGENAME eq StarCitizen.exe" /NH', (err, stdout) => {
-      resolve(!err && stdout.toLowerCase().includes('starcitizen.exe'))
-    })
+    if (IS_LINUX) {
+      // Linux: SC runs under Wine/Proton, but the process name is usually still StarCitizen.exe
+      exec('pgrep -fi StarCitizen.exe', (err, stdout) => {
+        resolve(!err && stdout.trim().length > 0)
+      })
+    } else {
+      exec('tasklist /FI "IMAGENAME eq StarCitizen.exe" /NH', (err, stdout) => {
+        resolve(!err && stdout.toLowerCase().includes('starcitizen.exe'))
+      })
+    }
   })
 }
 
@@ -40,10 +52,12 @@ const API_BASE   = 'https://www.sckillboard.com'
 // API_SECRET is loaded from config at runtime — never hardcoded
 function getApiSecret() { return loadConfig().api_secret || '' }
 function getSessionToken() { return loadConfig().session_token || '' }
-const CONFIG_DIR  = path.join(os.homedir(), 'AppData', 'Roaming', 'vKillboard')
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
-const DEFAULT_LOG = 'C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE\\Game.log'
 
+const CONFIG_DIR = IS_LINUX ? path.join(os.homedir(), ".config", "sckillboard") : path.join(os.homedir(), 'AppData', 'Roaming', 'vKillboard')
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
+const DEFAULT_LOG = IS_LINUX ? 
+  path.join(os.homedir(), 'Games', 'star-citizen', 'drive_c', 'Program Files', 'Roberts Space Industries', 'StarCitizen', 'LIVE', 'Game.log') :
+  'C:\\Program\ Files\\Roberts\ Space\ Industries\\StarCitizen\\LIVE\\Game.log'
 const KILL_CRIMES = new Set([
   'Negligent Homicide', 'Murder', 'Manslaughter',
   'Aggravated Assault', 'Destruction of Vehicle', 'Grievous Bodily Harm',
@@ -153,7 +167,7 @@ function httpGet(urlStr) {
       path: url.pathname + url.search,
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+        'User-Agent': USERAGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Referer': 'https://robertsspaceindustries.com/',
@@ -1290,13 +1304,15 @@ ipcMain.on('boot-complete', () => { proceedAfterIntro() })
 
 ipcMain.on('browse-log', async () => {
   if (!mainWin) return
+  const cfg = loadConfig()
   const result = await dialog.showOpenDialog(mainWin, {
     title: 'Select Game.log',
+    defaultPath: cfg.log_path,
     filters: [{ name: 'Log files', extensions: ['log'] }, { name: 'All files', extensions: ['*'] }]
   })
   if (!result.canceled && result.filePaths[0]) {
     // Persist straight away — the user shouldn't have to also click Save Settings.
-    const cfg = loadConfig(); cfg.log_path = result.filePaths[0]; saveConfig(cfg)
+    cfg.log_path = result.filePaths[0]; saveConfig(cfg)
     mainWin.webContents.send('log-path-selected', result.filePaths[0])
   }
 })
